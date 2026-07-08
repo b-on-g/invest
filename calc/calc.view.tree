@@ -1,0 +1,73 @@
+$bog_invest_calc $mol_page
+	title \Ребаланс ВДО
+	Head null
+	body /
+		<= Content $mol_view
+			sub /
+				<= Import_card $mol_view
+					sub /
+						<= Import $mol_button_open
+							sub /
+								<= Import_label $mol_paragraph
+									title <= import_label \Загрузить xlsx с квартилями
+								<= Import_native $mol_button_open_native
+									files? <=> xlsx_files? /File
+									accept \.xlsx,.xls
+									multiple false
+						<= Local_hint $mol_paragraph
+							title \Весь расчёт в браузере: файл не уходит с машины
+				<= Params_card $mol_view
+					sub /
+						<= Quartile_field $mol_view
+							sub /
+								<= Quartile_label $mol_paragraph
+									title \Квартиль
+								<= Quartile $mol_switch
+									value? <=> quartile? \Q1
+									options <= quartile_options *
+						<= Capital_field $mol_view
+							sub /
+								<= Capital_label $mol_paragraph
+									title \Капитал, ₽
+								<= Capital $mol_number
+									value? <=> capital? 500000
+						<= Min_order_field $mol_view
+							sub /
+								<= Min_order_label $mol_paragraph
+									title \Порог ордера, ₽
+								<= Min_order $mol_number
+									value? <=> min_order? 500
+				<= Portfolio_card $mol_view
+					sub /
+						<= Portfolio_label $mol_paragraph
+							title \Текущий портфель
+						<= Portfolio $mol_textarea
+							hint \АПРИ 2Р10 40000 — по строке на позицию; пусто = первая покупка
+							value? <=> portfolio_text? \
+				<= Result_card $mol_view
+					sub <= result_content /
+	Result_empty $mol_paragraph
+		title <= result_empty_text \Загрузи xlsx с листами Q1–Q4 — здесь появится список сделок
+	Warnings $mol_list
+		rows <= warning_rows /
+	Summary $mol_paragraph
+		title <= summary_text \
+	Orders $mol_list
+		rows <= order_rows /
+	Save $mol_button_major
+		title \Сохранить в историю ЛК
+		click? <=> save? null
+	Saved_note $mol_paragraph
+		title \Сохранено в ЛК ✓
+	Warning_row* $mol_paragraph
+		title <= warning_text* \
+	Order_row* $mol_view
+		attr *
+			bog_invest_action <= order_kind* \hold
+		sub /
+			<= Order_bond* $mol_paragraph
+				title <= order_bond* \
+			<= Order_move* $mol_paragraph
+				title <= order_move* \
+			<= Order_rub* $mol_paragraph
+				title <= order_rub* \

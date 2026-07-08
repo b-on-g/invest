@@ -1,0 +1,57 @@
+$bog_invest_lk $mol_page
+	Head null
+	body /
+		<= Card $mol_view
+			sub /
+				<= Avatar_circle $mol_view
+					sub /
+						<= avatar_preview null
+				<= Avatar $mol_button_open
+					sub /
+						<= Avatar_label $mol_paragraph
+							title \Сменить фото
+						<= Avatar_native $mol_button_open_native
+							files? <=> avatar_files? /File
+							accept \image/*
+							multiple false
+				<= Name_row $mol_view
+					sub /
+						<= Name_input $mol_string_button
+							hint \Твоё имя
+							value? <=> profile_name? \
+				<= Stats $mol_view
+					sub <= stat_rows /
+				<= Fun_card $mol_view
+					sub /
+						<= Fun_title $mol_paragraph
+							title \Твоя инвест-персона
+						<= Fun_text $mol_paragraph
+							title <= persona_text \
+		<= History_section $mol_view
+			sub /
+				<= History_title $mol_paragraph
+					title \История ребалансов
+				<= History_list $mol_list
+					rows <= history_rows /
+				<= History_empty $mol_paragraph
+					title <= history_empty_text \
+	Avatar_image $mol_image
+		uri <= avatar_uri \
+	Avatar_icon $mol_avatar
+		id <= player_id \
+	Stat_row* $mol_view
+		sub /
+			<= Stat_label* $mol_paragraph
+				title <= stat_label* \
+			<= Stat_value* $mol_paragraph
+				title <= stat_value* \
+	History_row* $mol_view
+		sub /
+			<= History_info* $mol_view
+				sub /
+					<= History_name* $mol_paragraph
+						title <= history_name* \
+					<= History_details* $mol_paragraph
+						title <= history_details* \
+			<= History_turnover* $mol_paragraph
+				title <= history_turnover* \
