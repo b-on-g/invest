@@ -4620,7 +4620,7 @@ var $;
                 check('hi', [0x68, 0x69]);
             },
             "1B ASCII with diacritic"($) {
-                check('allo\u0302', [0x61, 0x6C, 0x6C, 0x6F, 0xEA]);
+                check('allo\u0300', [0x61, 0x6C, 0x6C, 0x6F, 0xE2]);
             },
             "1B Cyrillic"($) {
                 check('мир', [0x88, 0x3C, 0xE2, 0x40, 0xF8]);
@@ -4666,6 +4666,18 @@ var $;
                 const error = $mol_assert_fail(() => $mol_charset_ucf_decode(bin), 'Wrong byte');
                 $mol_assert_equal(error.cause.pos, 4);
                 $mol_assert_equal(error.cause.text, '🏴');
+            },
+            "Wrong 2B sequence length"($) {
+                const bin = new Uint8Array([0x78, 0xF9, 0x0E]);
+                const error = $mol_assert_fail(() => $mol_charset_ucf_decode(bin), 'Expected 2 bytes');
+                $mol_assert_equal(error.cause.pos, 2);
+                $mol_assert_equal(error.cause.text, 'x');
+            },
+            "Wrong 3B sequence length"($) {
+                const bin = new Uint8Array([0x78, 0xF7, 0x2F, 0x47]);
+                const error = $mol_assert_fail(() => $mol_charset_ucf_decode(bin), 'Expected 3 bytes');
+                $mol_assert_equal(error.cause.pos, 2);
+                $mol_assert_equal(error.cause.text, 'x');
             },
         });
     })($$ = $_1.$$ || ($_1.$$ = {}));
@@ -4880,9 +4892,9 @@ var $;
             },
             "vary pack Date"($) {
                 const date1 = new Date('2025-01-02T03:04:05');
-                check([date1], [tupl | 1, list | 1, text | 9, ...str('unix_time'), uint | L4, ...new Uint8Array(new Uint32Array([date1.valueOf() / 1000]).buffer)]);
+                check([date1], [tupl | 1, list | 1, text | $mol_vary_len.L1, 9, ...str('unix_time'), uint | L4, ...new Uint8Array(new Uint32Array([date1.valueOf() / 1000]).buffer)]);
                 const date2 = new Date('2025-01-02T03:04:05.678');
-                check([date2], [tupl | 1, list | 1, text | 9, ...str('unix_time'), fp64, ...new Uint8Array(new Float64Array([date2.valueOf() / 1000]).buffer)]);
+                check([date2], [tupl | 1, list | 1, text | $mol_vary_len.L1, 9, ...str('unix_time'), fp64, ...new Uint8Array(new Float64Array([date2.valueOf() / 1000]).buffer)]);
             },
             "vary pack DOM Element"($) {
                 $mol_assert_equal($mol_dom_serialize($mol_jsx("div", null,
@@ -5107,9 +5119,9 @@ var $;
     });
     $mol_test({
         async 'Give rights'($) {
-            const auth0 = await $.$giper_baza_auth.generate();
-            const auth1 = await $.$giper_baza_auth.generate();
-            const auth2 = await $.$giper_baza_auth.generate();
+            const auth0 = await $.$giper_baza_auth.grab();
+            const auth1 = await $.$giper_baza_auth.grab();
+            const auth2 = await $.$giper_baza_auth.grab();
             const land0 = $giper_baza_land.make({ $, auth: () => auth0 });
             const land1 = $giper_baza_land.make({ $, link: () => land0.link(), auth: () => auth1 });
             $mol_assert_equal(land0.lord_rank(land0.link()), $giper_baza_rank_rule);
@@ -5133,8 +5145,8 @@ var $;
             land1.give(auth2.pass(), $giper_baza_rank_post('just'));
         },
         async 'Post Data and pick Delta'($) {
-            const auth1 = await $.$giper_baza_auth.generate();
-            const auth2 = await $.$giper_baza_auth.generate();
+            const auth1 = $.$giper_baza_auth.grab();
+            const auth2 = $.$giper_baza_auth.grab();
             const land1 = $giper_baza_land.make({ $, auth: () => auth1 });
             const land2 = $giper_baza_land.make({ $, link: () => land1.link(), auth: () => auth2 });
             $mol_assert_equal(await $mol_wire_async(land1).diff_units(), []);
@@ -6039,7 +6051,7 @@ var $;
             const list1 = land1.Pawn($giper_baza_list).Data();
             const list2 = land2.Pawn($giper_baza_list).Data();
             list1.items_vary(['foo', 'xxx']);
-            land2.faces.tick();
+            land2.tick();
             list2.items_vary(['foo', 'yyy']);
             await $mol_wire_async(land1).units_steal(land2);
             $mol_assert_equal(list1.items_vary(), ['foo', 'yyy', 'foo', 'xxx']);
@@ -6242,6 +6254,25 @@ var $;
             sync(left, right);
             $mol_assert_equal(left.Data($giper_baza_list).items_vary(), right.Data($giper_baza_list).items_vary(), [1, 4, 5, 2, 3, 7, 6]);
         }),
+        async '3 transactions in same second must keep ordering'($) {
+            const auth_left = $.$giper_baza_auth.grab();
+            const auth_right = $.$giper_baza_auth.grab();
+            const land_left = $.$giper_baza_land.make({ $, auth: () => auth_left });
+            land_left.give(auth_right.pass(), $giper_baza_rank_post('just'));
+            const land_right = $.$giper_baza_land.make({ $, auth: () => auth_right, link: () => land_left.link() });
+            const list_left = land_left.Data($giper_baza_list);
+            const list_right = land_right.Data($giper_baza_list);
+            list_left.items_vary(['a', 'b', 'c', 'd']);
+            $mol_assert_equal(list_left.items_vary(), ['a', 'b', 'c', 'd']);
+            await $mol_wire_async(land_right).units_steal(land_left);
+            $mol_assert_equal(list_right.items_vary(), ['a', 'b', 'c', 'd']);
+            list_right.splice(['x'], 0, 0);
+            $mol_assert_equal(list_right.items_vary(), ['x', 'a', 'b', 'c', 'd']);
+            await $mol_wire_async(land_left).units_steal(land_right);
+            $mol_assert_equal(list_left.items_vary(), ['x', 'a', 'b', 'c', 'd']);
+            list_left.items_vary(['d', 'x', 'a', 'b', 'c']);
+            $mol_assert_equal(list_left.items_vary(), ['d', 'x', 'a', 'b', 'c']);
+        },
     });
 })($ || ($ = {}));
 
@@ -6277,12 +6308,12 @@ var $;
                 const dict1 = land1.Pawn($giper_baza_dict).Data();
                 const dict2 = land2.Pawn($giper_baza_dict).Data();
                 dict1.dive(123, $giper_baza_atom, null).vary(666);
-                land2.faces.tick();
+                land2.tick();
                 dict2.dive(123, $giper_baza_atom, null).vary(777);
                 await $mol_wire_async(land1).units_steal(land2);
                 $mol_assert_equal(dict1.dive(123, $giper_baza_atom).vary(), 777);
                 dict1.dive('xxx', $giper_baza_list, null).items_vary(['foo']);
-                land2.faces.tick();
+                land2.tick();
                 dict2.dive('xxx', $giper_baza_list, null).items_vary(['bar']);
                 await $mol_wire_async(land1).units_steal(land2);
                 $mol_assert_equal(dict1.dive('xxx', $giper_baza_list).items_vary(), ['bar', 'foo']);
@@ -6918,6 +6949,34 @@ var $;
             $mol_assert_equal(holdings[$bog_invest_core.norm_name('ТГК-14 1Р2')], 25_000.5);
             $mol_assert_equal(Object.keys(holdings).length, 3);
             $mol_assert_equal(names[$bog_invest_core.norm_name('АПРИ 2Р10')], 'АПРИ 2Р10');
+        },
+    });
+})($ || ($ = {}));
+
+;
+"use strict";
+/** @jsx $mol_jsx */
+/** @jsxFrag $mol_jsx_frag */
+var $;
+(function ($) {
+    $mol_test({
+        'safe tag'() {
+            $mol_assert_equal($mol_dom_serialize($$.$mol_dom_safe([$mol_jsx("div", null, "foo")])[0]), $mol_dom_serialize($mol_jsx("div", null, "foo")));
+        },
+        'bad tag'() {
+            $mol_assert_equal($mol_dom_serialize($$.$mol_dom_safe([$mol_jsx("script", null, "alert('ahtung!')")])[0]), $mol_dom_serialize($mol_jsx($mol_jsx_frag, null, "alert('ahtung!')")));
+        },
+        'common attr'() {
+            $mol_assert_equal($mol_dom_serialize($$.$mol_dom_safe([$mol_jsx("a", { id: "foo" }, "foo")])[0]), $mol_dom_serialize($mol_jsx("a", { id: "foo" }, "foo")));
+        },
+        'safe attr'() {
+            $mol_assert_equal($mol_dom_serialize($$.$mol_dom_safe([$mol_jsx("a", { href: "https://example.org/" }, "foo")])[0]), $mol_dom_serialize($mol_jsx("a", { href: "https://example.org/" }, "foo")));
+        },
+        'bad attr'() {
+            $mol_assert_equal($mol_dom_serialize($$.$mol_dom_safe([$mol_jsx("a", { onclick: "alert('ahtung!')" }, "foo")])[0]), $mol_dom_serialize($mol_jsx("a", null, "foo")));
+        },
+        'danger attr'() {
+            $mol_assert_equal($mol_dom_serialize($$.$mol_dom_safe([$mol_jsx("a", { href: "javascript:alert('ahtung!')" }, "foo")])[0]), $mol_dom_serialize($mol_jsx("a", { href: "about:blank#javascript:alert('ahtung!')" }, "foo")));
         },
     });
 })($ || ($ = {}));
